@@ -1,7 +1,6 @@
 package body
 
 import (
-	"fmt"
 	"image/color"
 	"image/draw"
 	"math"
@@ -122,9 +121,9 @@ func ApplyGravity(a, b *Body) {
 	a.Fy += fy
 	b.Fx += -fx
 	b.Fy += -fy
-	fmt.Printf(
-		"a.Fx: %.6f\ta.Fy: %.6f\t b.Fx: %.6f\tb.Fy: %.6f\tr: %.6f\n",
-		a.Fx, a.Fy, b.Fx, b.Fy, r)
+	// fmt.Printf(
+	// 	"a.Fx: %.6f\ta.Fy: %.6f\t b.Fx: %.6f\tb.Fy: %.6f\tr: %.6f\n",
+	// 	a.Fx, a.Fy, b.Fx, b.Fy, r)
 	// determine in which quadrant b is relative to a
 	// aCenter := a.Center()
 	// bCenter := b.Center()

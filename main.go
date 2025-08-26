@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"log"
+	"math/rand/v2"
 
 	"github.com/Pyrdelic/orbital/body"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -23,9 +24,18 @@ type Game struct {
 
 var ErrExit error = errors.New("Game exited")
 
+var m1Hold bool = false
+
 func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		return ErrExit
+	}
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && !m1Hold {
+		mx, my := ebiten.CursorPosition()
+		g.addBody(mx, my)
+		m1Hold = true
+	} else if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		m1Hold = false
 	}
 	// update bodies
 	// zero gravity vectors
@@ -68,14 +78,14 @@ func (g *Game) debugPrintBodies(screen *ebiten.Image) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-
+	g.debugPrintBodies(screen)
 	for i := 0; i < len(g.bodies); i++ {
 		//fmt.Println(i, g.bodies[i].X, g.bodies[i].Y)
 		g.bodies[i].Draw(screen)
 	}
 	// testVec := vec.Vec2D{X: 100, Y: 100, PosX: 150, PosY: 150}
 	// testVec.Draw(screen)
-	g.debugPrintBodies(screen)
+
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -83,6 +93,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func (g *Game) addBody(x, y int) {
+
 	g.bodies = append(g.bodies, body.NewBody(
 		float64(x),   // x
 		float64(y),   // y
@@ -91,9 +102,9 @@ func (g *Game) addBody(x, y int) {
 		float64(0),   // vx
 		float64(0),   // vy
 		color.RGBA{
-			R: 127,
-			G: 0,
-			B: 127,
+			R: uint8(rand.IntN(255)),
+			G: uint8(rand.IntN(255)),
+			B: uint8(126 + rand.IntN(126)),
 			A: 255,
 		},
 	))
@@ -108,51 +119,51 @@ func main() {
 		return
 	}
 	ebiten.SetWindowSize(640, 480)
-	ebiten.SetWindowTitle("Orbital playground")
+	ebiten.SetWindowTitle("N Body Problem")
 	game := Game{}
 	bodies := make([]*body.Body, 0)
-	bodies = append(bodies, body.NewBody(
-		float64(100), // x
-		float64(150), // y
-		float64(5),   // r
-		float64(0.5), // m
-		float64(0.1), // vx
-		float64(0),   // vy
-		color.RGBA{
-			R: 255,
-			G: 0,
-			B: 0,
-			A: 255,
-		},
-	))
-	bodies = append(bodies, body.NewBody(
-		float64(200), // x
-		float64(150), // y
-		float64(5),   // r
-		float64(0.5), // m
-		float64(0),   // vx
-		float64(0),   // vy
-		color.RGBA{
-			R: 0,
-			G: 255,
-			B: 0,
-			A: 255,
-		},
-	))
-	bodies = append(bodies, body.NewBody(
-		float64(150), // x
-		float64(175), // y
-		float64(5),   // r
-		float64(0.5), // m
-		float64(0.0), // vx
-		float64(0.0), // vy
-		color.RGBA{
-			R: 0,
-			G: 0,
-			B: 255,
-			A: 255,
-		},
-	))
+	// bodies = append(bodies, body.NewBody(
+	// 	float64(100), // x
+	// 	float64(150), // y
+	// 	float64(5),   // r
+	// 	float64(0.5), // m
+	// 	float64(0.1), // vx
+	// 	float64(0),   // vy
+	// 	color.RGBA{
+	// 		R: 255,
+	// 		G: 0,
+	// 		B: 0,
+	// 		A: 255,
+	// 	},
+	// ))
+	// bodies = append(bodies, body.NewBody(
+	// 	float64(200), // x
+	// 	float64(150), // y
+	// 	float64(5),   // r
+	// 	float64(0.5), // m
+	// 	float64(0),   // vx
+	// 	float64(0),   // vy
+	// 	color.RGBA{
+	// 		R: 0,
+	// 		G: 255,
+	// 		B: 0,
+	// 		A: 255,
+	// 	},
+	// ))
+	// bodies = append(bodies, body.NewBody(
+	// 	float64(150), // x
+	// 	float64(175), // y
+	// 	float64(5),   // r
+	// 	float64(0.5), // m
+	// 	float64(0.0), // vx
+	// 	float64(0.0), // vy
+	// 	color.RGBA{
+	// 		R: 0,
+	// 		G: 0,
+	// 		B: 255,
+	// 		A: 255,
+	// 	},
+	// ))
 	game.bodies = bodies
 	if err := ebiten.RunGame(&game); err != nil {
 		if err == ErrExit {
