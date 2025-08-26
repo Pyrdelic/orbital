@@ -1,6 +1,7 @@
 package body
 
 import (
+	"fmt"
 	"image/color"
 	"image/draw"
 	"math"
@@ -14,7 +15,8 @@ type Body struct {
 	X, Y   float64 // position of the body on 2D plane
 	R      float64 // radius of the body
 	M      float64 // mass of the body
-	Fx, Fy float64 // force fector
+	Vx, Vy float64 // velocity vector (actual movement)
+	Fx, Fy float64 // force fector (effect of gravity)
 	Color  color.Color
 }
 
@@ -22,9 +24,7 @@ type Point struct {
 	X, Y float64
 }
 
-const GravityConst float64 = 1.0
-
-// Returns x and y axis differences.
+// Returns x and y axis difference from a to b.
 func PointDistanceXY(a, b Point) (float64, float64) {
 	var xDiff, yDiff float64 // difference
 	if a.X < b.X {
@@ -50,57 +50,133 @@ func PointDistance(a, b Point) float64 {
 	return math.Sqrt(distanceSq)
 }
 
+// // Returns gravityvector x, y from a to b.
+// func atobGetDiff(a, b Point, f float64) (float64, float64) {
+// 	var xDir, yDir float64 // direction multipliers from a to b
+// 	var xDiff, yDiff float64
+// 	if a.X < b.X {
+// 		// a is left of b
+// 		xDiff = b.X - a.X
+// 		xDir = float64(1) // right
+// 		if a.Y < b.Y {
+// 			// a is above b (+, +)
+// 			yDiff = float64(b.Y - a.Y)
+// 			yDir = float64(1) // down
+
+// 		} else if a.Y > b.Y {
+// 			// a is below b (+, -)
+
+// 			yDir = float64(-1) // up
+// 		} else {
+// 			// a and b are vertically aligned (+, 0)
+// 			yDir = 0
+// 		}
+// 	} else if a.X > b.X {
+// 		// a is right of b (-, ?)
+// 		xDir = float64(-1) // left
+// 		if a.Y < b.Y {
+// 			// a is above b (-, +)
+// 			yDir = float64(1) // down
+// 		} else if a.Y > b.Y {
+// 			// a is below b (-, -)
+// 			yDir = float64(-1) // up
+// 		} else {
+// 			// a and b are vertically aligned (-, 0)
+// 			yDir = 0
+// 		}
+// 	} else {
+// 		// a and b are horizontally aligned (0, ?)
+// 		xDir = 0
+// 		if a.Y < b.Y {
+// 			// a is above b (0, +)
+// 			yDir = float64(1) // down
+// 		} else if a.Y > b.Y {
+// 			// a is below b (0, -)
+// 			yDir = float64(-1) // up
+// 		} else {
+// 			// a and b are vertically aligned (0, 0)
+// 			yDir = 0
+// 		}
+// 	}
+// 	return xDir, yDir
+// }
+
+func getatobDiff(a, b Point) (float64, float64) {
+	return b.X - a.X, b.Y - a.Y
+}
+
+const GravityConst float64 = 1.0
+
 // Applies mutual gravity of two bodies.
 func ApplyGravity(a, b *Body) {
 
-	// var a, b *Body
-	// if bodyA.X < bodyB.X {
-	// 	a, b = bodyA, bodyB
+	r := PointDistance(a.Center(), b.Center())
+	//f := GravityConst * ((a.M * b.M) / (r * r)) // length of the gravity vector
+	rx, ry := getatobDiff(a.Center(), b.Center())
+	//fmt.Printf("%.6f\t%.6f\t%.6f\n", rx, ry, r)
+	f := GravityConst * ((a.M * b.M) / (r * r))
+	fx := rx * f
+	fy := ry * f
+
+	a.Fx += fx
+	a.Fy += fy
+	b.Fx += -fx
+	b.Fy += -fy
+	fmt.Printf(
+		"a.Fx: %.6f\ta.Fy: %.6f\t b.Fx: %.6f\tb.Fy: %.6f\tr: %.6f\n",
+		a.Fx, a.Fy, b.Fx, b.Fy, r)
+	// determine in which quadrant b is relative to a
+	// aCenter := a.Center()
+	// bCenter := b.Center()
+
+	//rx, ry := PointDistanceXY(a.Center(), b.Center())
+
+	// //fmt.Println(rx, ry)
+	// fx := GravityConst * ((a.M * b.M) / (rx * rx)) // zero-danger
+	// fy := GravityConst * ((a.M * b.M) / (ry * ry)) // zero-danger, result rises towards inf
+	// debugStr := fmt.Sprintf("fx: %f\tfy: %f", fx, fy)
+
+	// if aCenter.X < bCenter.X {
+	// 	debugStr += "\ta.X < b.Y"
+	// 	a.Fx += fx
+	// 	b.Fx += -fx
+	// } else if aCenter.X > bCenter.X {
+	// 	// b is left of a
+	// 	debugStr += "\ta.X > b.X"
+	// 	a.Fx += -fx
+	// 	b.Fx += fx
 	// } else {
-	// 	a, b = bodyB, bodyA
+	// 	debugStr += "\ta.X == b.X"
+	// 	// exactly same x position
 	// }
-	// a is now left of b
-	rx, ry := PointDistanceXY(a.Center(), b.Center())
-	//fmt.Println(rx, ry)
-	var fx, fy float64
-	fx = GravityConst * (a.M * b.M) / (rx * rx) // zero danger
-	fy = GravityConst * (a.M * b.M) / (ry * ry) // zero danger
-	aCenter := a.Center()
-	bCenter := b.Center()
-	if aCenter.X < bCenter.X {
-		// a is left of b
-		a.Fx += fx
-		b.Fx += -fx
-	} else if aCenter.X > bCenter.X {
-		// b is left of a
-		a.Fx += -fx
-		b.Fx += fx
-	} else {
-		// exactly same x position
-	}
-	if aCenter.Y < bCenter.Y {
-		// a is above b
-		//a.Fy, b.Fy = fy, -fy
-		a.Fy += fy
-		b.Fy += -fy
-	} else if a.Y > b.Y {
-		// a is below b
-		a.Fy += -fy
-		b.Fy += fy
-	} else {
-		// exactly same y position
-	}
+
+	// if aCenter.Y < bCenter.Y {
+	// 	debugStr += "\ta.Y < b.Y"
+	// 	// a is above b
+	// 	a.Fy += -fy
+	// 	b.Fy += fy
+	// } else if aCenter.Y > bCenter.Y {
+	// 	debugStr += "\ta.Y > b.Y"
+	// 	// a is below b
+	// 	a.Fy += fy
+	// 	b.Fy += -fy
+	// } else {
+	// 	// exactly same y position
+	// 	debugStr += "\ta.Y == b.Y"
+	// }
+
+	// fmt.Println(debugStr)
 }
 
 // NewBody returns a pointer to a new body.
-func NewBody(x, y, r, m, fx, fy float64, c color.Color) *Body {
+func NewBody(x, y, r, m, vx, vy float64, c color.Color) *Body {
 	b := Body{}
 	b.X = x
 	b.Y = y
 	b.R = r
 	b.M = m
-	b.Fx = fx
-	b.Fy = fy
+	b.Vx = vx
+	b.Vy = vy
 	b.Image = ebiten.NewImage(
 		int(2.0*r),
 		int(2.0*r),
@@ -110,9 +186,12 @@ func NewBody(x, y, r, m, fx, fy float64, c color.Color) *Body {
 }
 
 func (b *Body) Update() {
-	// apply force vector to position
-	b.X += b.Fx
-	b.Y += b.Fy
+	// apply force vector to velocity vector
+	b.Vx += b.Fx
+	b.Vy += b.Fy
+	// apply velocity vector to position
+	b.X += b.Vx
+	b.Y += b.Vy
 }
 
 func (b *Body) Draw(screen *ebiten.Image) {
