@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
 	"log"
@@ -15,12 +16,23 @@ const (
 )
 
 type Game struct {
-	bodies []*body.Body
+	bodies   []*body.Body
+	vertices []ebiten.Vertex
+	indices  []uint16
 }
 
+var ErrExit error = errors.New("Game exited")
+
 func (g *Game) Update() error {
+	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
+		return ErrExit
+	}
 	// update bodies
-	// gravity, go through unique pairs
+	// zero gravity vectors
+	for i := 0; i < len(g.bodies); i++ {
+		g.bodies[i].Fx, g.bodies[i].Fy = 0.0, 0.0
+	}
+	// calculate new gravity vectors, go through unique pairs
 	for i := 0; i < len(g.bodies); i++ {
 		for j := i + 1; j < len(g.bodies); j++ {
 			// apply gravity between i and j
@@ -38,7 +50,7 @@ func (g *Game) debugPrintBodies(screen *ebiten.Image) {
 	debugStr := ""
 	for i := 0; i < len(g.bodies); i++ {
 		bodyStr := fmt.Sprintf(
-			"%d - x: %.2f, y: %.2f Fx: %.2f, Fy: %.2f",
+			"%d - x: %.1f, y: %.1f Fx: %.6f, Fy: %.6f",
 			i,
 			g.bodies[i].X,
 			g.bodies[i].Y,
@@ -51,6 +63,7 @@ func (g *Game) debugPrintBodies(screen *ebiten.Image) {
 		debugStr += bodyStr
 
 	}
+	//debugStr += fmt.Sprintf("\npd: %.2f", body.PointDistance())
 	ebitenutil.DebugPrint(screen, debugStr)
 }
 
@@ -60,11 +73,30 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		//fmt.Println(i, g.bodies[i].X, g.bodies[i].Y)
 		g.bodies[i].Draw(screen)
 	}
+	// testVec := vec.Vec2D{X: 100, Y: 100, PosX: 150, PosY: 150}
+	// testVec.Draw(screen)
 	g.debugPrintBodies(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return 320, 240
+}
+
+func (g *Game) addBody(x, y int) {
+	g.bodies = append(g.bodies, body.NewBody(
+		float64(x),   // x
+		float64(y),   // y
+		float64(5),   // r
+		float64(0.5), // m
+		float64(0),   // vx
+		float64(0),   // vy
+		color.RGBA{
+			R: 127,
+			G: 0,
+			B: 127,
+			A: 255,
+		},
+	))
 }
 
 func main() {
@@ -76,34 +108,57 @@ func main() {
 		return
 	}
 	ebiten.SetWindowSize(640, 480)
-	ebiten.SetWindowTitle("Hello, World!")
+	ebiten.SetWindowTitle("Orbital playground")
 	game := Game{}
 	bodies := make([]*body.Body, 0)
 	bodies = append(bodies, body.NewBody(
-		float64(200.0), // x
-		float64(200.0), // y
-		float64(10),    // r
-		float64(1.0),   // m
-		float64(0.2),   // fx
-		float64(-0.2),  // fy
-		color.White,
+		float64(100), // x
+		float64(150), // y
+		float64(5),   // r
+		float64(0.5), // m
+		float64(0.1), // vx
+		float64(0),   // vy
+		color.RGBA{
+			R: 255,
+			G: 0,
+			B: 0,
+			A: 255,
+		},
 	))
 	bodies = append(bodies, body.NewBody(
-		float64(100), // x
-		float64(100), // y
-		float64(10),  // r
-		float64(1.0), // m
-		float64(0.2), // fx
-		float64(0.5), // fy
+		float64(200), // x
+		float64(150), // y
+		float64(5),   // r
+		float64(0.5), // m
+		float64(0),   // vx
+		float64(0),   // vy
 		color.RGBA{
-			R: 127,
+			R: 0,
+			G: 255,
+			B: 0,
+			A: 255,
+		},
+	))
+	bodies = append(bodies, body.NewBody(
+		float64(150), // x
+		float64(175), // y
+		float64(5),   // r
+		float64(0.5), // m
+		float64(0.0), // vx
+		float64(0.0), // vy
+		color.RGBA{
+			R: 0,
 			G: 0,
-			B: 127,
+			B: 255,
 			A: 255,
 		},
 	))
 	game.bodies = bodies
 	if err := ebiten.RunGame(&game); err != nil {
+		if err == ErrExit {
+			fmt.Println(err)
+			return
+		}
 		log.Fatal(err)
 	}
 }
