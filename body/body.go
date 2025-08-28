@@ -193,10 +193,13 @@ func (b *Body) Update() {
 	b.Y += b.Vy
 }
 
-func (b *Body) Draw(screen *ebiten.Image) {
-	dio := ebiten.DrawImageOptions{}
-	dio.GeoM.Translate(b.X, b.Y)
-	screen.DrawImage(b.Image, &dio)
+func (b *Body) Draw(screen *ebiten.Image, bodyDIO *ebiten.DrawImageOptions) {
+	// dio := ebiten.DrawImageOptions{}
+	// dio.GeoM.Translate(
+	// 	b.X+zoomOffset/2,
+	// 	b.Y+zoomOffset/2)
+	//dio.GeoM.Translate(b.X, b.Y)
+	screen.DrawImage(b.Image, bodyDIO)
 }
 
 func (b *Body) Center() Point {

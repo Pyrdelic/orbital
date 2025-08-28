@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 
 	"github.com/Pyrdelic/orbital/body"
+	"github.com/Pyrdelic/orbital/config"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
@@ -17,57 +18,101 @@ const (
 )
 
 type Game struct {
-	bodies   []*body.Body
-	vertices []ebiten.Vertex
-	indices  []uint16
+	Bodies     []*body.Body
+	Background *ebiten.Image
+
+	ViewPortScale   int
+	ViewPortOffsetX int
+	ViewPortOffsetY int
+	// vertices []ebiten.Vertex
+	// indices  []uint16
 }
 
 var ErrExit error = errors.New("Game exited")
 
 var m1Hold bool = false
+var zoomOutIsHeld bool = false
+var zoomInIsHeld bool = false
 
 func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		return ErrExit
 	}
+
+	// zoom controls
+	// zoom out
+	if ebiten.IsKeyPressed(config.KeyBindZoomOut) && !zoomOutIsHeld {
+		g.ViewPortScale += 20
+		zoomOutIsHeld = true
+	} else if !ebiten.IsKeyPressed(config.KeyBindZoomOut) {
+		zoomOutIsHeld = false
+	}
+	// zoom in
+	if ebiten.IsKeyPressed(config.KeyBindZoomIn) && !zoomInIsHeld {
+		g.ViewPortScale -= 20
+		if g.ViewPortScale < 0 {
+			g.ViewPortScale = 0
+		}
+		zoomInIsHeld = true
+	} else if !ebiten.IsKeyPressed(config.KeyBindZoomIn) {
+		zoomInIsHeld = false
+	}
+
+	// camera movement
+	if ebiten.IsKeyPressed(config.KeyBindMoveCamDown) {
+		g.ViewPortOffsetY += config.CameraSpeed
+	}
+	if ebiten.IsKeyPressed(config.KeyBindMoveCamUp) {
+		g.ViewPortOffsetY -= config.CameraSpeed
+	}
+	if ebiten.IsKeyPressed(config.KeyBindMoveCamLeft) {
+		g.ViewPortOffsetX -= config.CameraSpeed
+	}
+	if ebiten.IsKeyPressed(config.KeyBindMoveCamRight) {
+		g.ViewPortOffsetX += config.CameraSpeed
+	}
+
+	// adding a body
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && !m1Hold {
 		mx, my := ebiten.CursorPosition()
+		fmt.Println("Add body to x:", mx, "y:", my)
 		g.addBody(mx, my)
 		m1Hold = true
 	} else if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		m1Hold = false
 	}
+
 	// update bodies
 	// zero gravity vectors
-	for i := 0; i < len(g.bodies); i++ {
-		g.bodies[i].Fx, g.bodies[i].Fy = 0.0, 0.0
+	for i := 0; i < len(g.Bodies); i++ {
+		g.Bodies[i].Fx, g.Bodies[i].Fy = 0.0, 0.0
 	}
 	// calculate new gravity vectors, go through unique pairs
-	for i := 0; i < len(g.bodies); i++ {
-		for j := i + 1; j < len(g.bodies); j++ {
+	for i := 0; i < len(g.Bodies); i++ {
+		for j := i + 1; j < len(g.Bodies); j++ {
 			// apply gravity between i and j
 			// F = G*((m1*m2)/(r*r))
 			//Fx := GravityConst * ((g.bodies[i].M * g.bodies[j].M) / g.bodies)
-			body.ApplyGravity(g.bodies[i], g.bodies[j])
+			body.ApplyGravity(g.Bodies[i], g.Bodies[j])
 		}
 
-		g.bodies[i].Update()
+		g.Bodies[i].Update()
 	}
 	return nil
 }
 
 func (g *Game) debugPrintBodies(screen *ebiten.Image) {
 	debugStr := ""
-	for i := 0; i < len(g.bodies); i++ {
+	for i := 0; i < len(g.Bodies); i++ {
 		bodyStr := fmt.Sprintf(
 			"%d - x: %.1f, y: %.1f Fx: %.6f, Fy: %.6f",
 			i,
-			g.bodies[i].X,
-			g.bodies[i].Y,
-			g.bodies[i].Fx,
-			g.bodies[i].Fy,
+			g.Bodies[i].Center().X,
+			g.Bodies[i].Center().Y,
+			g.Bodies[i].Fx,
+			g.Bodies[i].Fy,
 		)
-		if i < len(g.bodies)-1 {
+		if i < len(g.Bodies)-1 {
 			bodyStr += "\n"
 		}
 		debugStr += bodyStr
@@ -78,25 +123,51 @@ func (g *Game) debugPrintBodies(screen *ebiten.Image) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.debugPrintBodies(screen)
-	for i := 0; i < len(g.bodies); i++ {
-		//fmt.Println(i, g.bodies[i].X, g.bodies[i].Y)
-		g.bodies[i].Draw(screen)
-	}
-	// testVec := vec.Vec2D{X: 100, Y: 100, PosX: 150, PosY: 150}
-	// testVec.Draw(screen)
+	//g.debugPrintBodies(screen)
+	var fadeImg *ebiten.Image = ebiten.NewImage(config.InnerWidth, config.InnerHeight)
+	//fadeImg := ebiten.NewImage(config.InnerWidth, config.InnerHeight)
+	fadeImg.Fill(color.RGBA{
+		R: 0,
+		G: 0,
+		B: 0,
+		A: 255,
+	})
+	bgFadeOpts := ebiten.DrawImageOptions{}
+	bgFadeOpts.ColorScale.Scale(1, 1, 1, 0.01)
+	//bgFadeOpts.ColorScale.ScaleWithColor(color.RGBA{A: 1})
+	g.Background.DrawImage(fadeImg, &bgFadeOpts)
+	// screenOpts := ebiten.DrawImageOptions{}
+	zoomOffset := float64(g.ViewPortScale)
 
+	for i := 0; i < len(g.Bodies); i++ {
+		// g.Bodies[i].Draw(screen, zoomOffset)
+		bodyDIO := ebiten.DrawImageOptions{}
+		bodyDIO.GeoM.Translate(
+			(g.Bodies[i].X+zoomOffset/2)-float64(g.ViewPortOffsetX),
+			(g.Bodies[i].Y+zoomOffset/2)-float64(g.ViewPortOffsetY),
+		)
+		g.Bodies[i].Draw(screen, &bodyDIO)
+	}
+	//fmt.Println(g.ViewPortOffsetX, g.ViewPortOffsetY)
+
+	//fmt.Println("ViewportScale:", g.ViewPortScale, "ZoomOffset:", zoomOffset)
+	//screen.DrawImage(g.Background, &screenOpts)
+	//screen.DrawImage()
 }
 
+var aspectRatioX float64 = 4
+var aspectRatioY float64 = 3
+
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 320, 240
+	return config.InnerWidth + g.ViewPortScale*int(aspectRatioX),
+		config.InnerHeight + g.ViewPortScale*int(aspectRatioY)
 }
 
 func (g *Game) addBody(x, y int) {
 
-	g.bodies = append(g.bodies, body.NewBody(
-		float64(x),   // x
-		float64(y),   // y
+	g.Bodies = append(g.Bodies, body.NewBody(
+		float64((x-g.ViewPortScale/2)+g.ViewPortOffsetX), // x
+		float64((y-g.ViewPortScale/2)+g.ViewPortOffsetY), // y
 		float64(5),   // r
 		float64(0.5), // m
 		float64(0),   // vx
@@ -111,61 +182,21 @@ func (g *Game) addBody(x, y int) {
 }
 
 func main() {
-	if false {
-		fmt.Println(body.PointDistance(
-			body.Point{X: 10, Y: 5},
-			body.Point{X: 0, Y: 0},
-		))
-		return
-	}
 	ebiten.SetWindowSize(640, 480)
 	ebiten.SetWindowTitle("N Body Problem")
-	game := Game{}
-	bodies := make([]*body.Body, 0)
-	// bodies = append(bodies, body.NewBody(
-	// 	float64(100), // x
-	// 	float64(150), // y
-	// 	float64(5),   // r
-	// 	float64(0.5), // m
-	// 	float64(0.1), // vx
-	// 	float64(0),   // vy
-	// 	color.RGBA{
-	// 		R: 255,
-	// 		G: 0,
-	// 		B: 0,
-	// 		A: 255,
-	// 	},
-	// ))
-	// bodies = append(bodies, body.NewBody(
-	// 	float64(200), // x
-	// 	float64(150), // y
-	// 	float64(5),   // r
-	// 	float64(0.5), // m
-	// 	float64(0),   // vx
-	// 	float64(0),   // vy
-	// 	color.RGBA{
-	// 		R: 0,
-	// 		G: 255,
-	// 		B: 0,
-	// 		A: 255,
-	// 	},
-	// ))
-	// bodies = append(bodies, body.NewBody(
-	// 	float64(150), // x
-	// 	float64(175), // y
-	// 	float64(5),   // r
-	// 	float64(0.5), // m
-	// 	float64(0.0), // vx
-	// 	float64(0.0), // vy
-	// 	color.RGBA{
-	// 		R: 0,
-	// 		G: 0,
-	// 		B: 255,
-	// 		A: 255,
-	// 	},
-	// ))
-	game.bodies = bodies
-	if err := ebiten.RunGame(&game); err != nil {
+
+	g := Game{}
+	g.Bodies = make([]*body.Body, 0)
+	g.ViewPortScale = 0
+	g.Background = ebiten.NewImage(config.InnerWidth, config.InnerHeight)
+	g.Background.Fill(color.RGBA{
+		R: 0,
+		G: 0,
+		B: 0,
+		A: 255,
+	})
+
+	if err := ebiten.RunGame(&g); err != nil {
 		if err == ErrExit {
 			fmt.Println(err)
 			return
