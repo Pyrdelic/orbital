@@ -11,6 +11,7 @@ import (
 	"github.com/Pyrdelic/orbital/config"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 const (
@@ -19,20 +20,16 @@ const (
 
 type Game struct {
 	Bodies     []*body.Body
-	Background *ebiten.Image
+	Background *ebiten.Image // only used for the trail-effect (which is broken rn)
 
 	ViewPortScale   int
 	ViewPortOffsetX int
 	ViewPortOffsetY int
-	// vertices []ebiten.Vertex
-	// indices  []uint16
 }
 
 var ErrExit error = errors.New("Game exited")
 
 var m1Hold bool = false
-var zoomOutIsHeld bool = false
-var zoomInIsHeld bool = false
 
 func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
@@ -41,21 +38,14 @@ func (g *Game) Update() error {
 
 	// zoom controls
 	// zoom out
-	if ebiten.IsKeyPressed(config.KeyBindZoomOut) && !zoomOutIsHeld {
+	if inpututil.IsKeyJustPressed(config.KeyBindZoomOut) {
 		g.ViewPortScale += 20
-		zoomOutIsHeld = true
-	} else if !ebiten.IsKeyPressed(config.KeyBindZoomOut) {
-		zoomOutIsHeld = false
 	}
-	// zoom in
-	if ebiten.IsKeyPressed(config.KeyBindZoomIn) && !zoomInIsHeld {
+	if inpututil.IsKeyJustPressed(config.KeyBindZoomIn) {
 		g.ViewPortScale -= 20
 		if g.ViewPortScale < 0 {
 			g.ViewPortScale = 0
 		}
-		zoomInIsHeld = true
-	} else if !ebiten.IsKeyPressed(config.KeyBindZoomIn) {
-		zoomInIsHeld = false
 	}
 
 	// camera movement
@@ -83,7 +73,7 @@ func (g *Game) Update() error {
 	}
 
 	// update bodies
-	// zero gravity vectors
+	// zero out the gravity vectors
 	for i := 0; i < len(g.Bodies); i++ {
 		g.Bodies[i].Fx, g.Bodies[i].Fy = 0.0, 0.0
 	}
@@ -153,6 +143,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	//fmt.Println("ViewportScale:", g.ViewPortScale, "ZoomOffset:", zoomOffset)
 	//screen.DrawImage(g.Background, &screenOpts)
 	//screen.DrawImage()
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("Bodies: %d", len(g.Bodies)))
 }
 
 var aspectRatioX float64 = 4

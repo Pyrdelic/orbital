@@ -106,7 +106,7 @@ func getatobDiff(a, b Point) (float64, float64) {
 
 const GravityConst float64 = 1.0
 
-// Applies mutual gravity of two bodies.
+// Applies mutual gravity of two bodies to both bodies.
 func ApplyGravity(a, b *Body) {
 
 	r := PointDistance(a.Center(), b.Center())
@@ -121,50 +121,6 @@ func ApplyGravity(a, b *Body) {
 	a.Fy += fy
 	b.Fx += -fx
 	b.Fy += -fy
-	// fmt.Printf(
-	// 	"a.Fx: %.6f\ta.Fy: %.6f\t b.Fx: %.6f\tb.Fy: %.6f\tr: %.6f\n",
-	// 	a.Fx, a.Fy, b.Fx, b.Fy, r)
-	// determine in which quadrant b is relative to a
-	// aCenter := a.Center()
-	// bCenter := b.Center()
-
-	//rx, ry := PointDistanceXY(a.Center(), b.Center())
-
-	// //fmt.Println(rx, ry)
-	// fx := GravityConst * ((a.M * b.M) / (rx * rx)) // zero-danger
-	// fy := GravityConst * ((a.M * b.M) / (ry * ry)) // zero-danger, result rises towards inf
-	// debugStr := fmt.Sprintf("fx: %f\tfy: %f", fx, fy)
-
-	// if aCenter.X < bCenter.X {
-	// 	debugStr += "\ta.X < b.Y"
-	// 	a.Fx += fx
-	// 	b.Fx += -fx
-	// } else if aCenter.X > bCenter.X {
-	// 	// b is left of a
-	// 	debugStr += "\ta.X > b.X"
-	// 	a.Fx += -fx
-	// 	b.Fx += fx
-	// } else {
-	// 	debugStr += "\ta.X == b.X"
-	// 	// exactly same x position
-	// }
-
-	// if aCenter.Y < bCenter.Y {
-	// 	debugStr += "\ta.Y < b.Y"
-	// 	// a is above b
-	// 	a.Fy += -fy
-	// 	b.Fy += fy
-	// } else if aCenter.Y > bCenter.Y {
-	// 	debugStr += "\ta.Y > b.Y"
-	// 	// a is below b
-	// 	a.Fy += fy
-	// 	b.Fy += -fy
-	// } else {
-	// 	// exactly same y position
-	// 	debugStr += "\ta.Y == b.Y"
-	// }
-
-	// fmt.Println(debugStr)
 }
 
 // NewBody returns a pointer to a new body.
