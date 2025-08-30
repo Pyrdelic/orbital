@@ -3,6 +3,11 @@
 
 ## How to use
 Left Click: add a body of mass
+
 PGDOWN: zoom out
+
 PGUP: zoom in
+
 Arrow Keys: move viewport (camera)
+
+Enter: Add 100 bodies
