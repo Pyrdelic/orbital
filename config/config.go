@@ -8,6 +8,8 @@ const (
 
 	CameraSpeed     int = 5
 	CameraZoomSpeed int = 5
+
+	SlingSpeed float64 = 0.05
 )
 
 var (

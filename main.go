@@ -22,6 +22,7 @@ const (
 type Game struct {
 	Bodies      []*body.Body
 	uniquePairs [][2]*body.Body
+	mutex       sync.Mutex
 	Background  *ebiten.Image // only used for the trail-effect (which is broken rn)
 
 	ViewPortScale   int
@@ -30,15 +31,10 @@ type Game struct {
 }
 
 var ErrExit error = errors.New("Game exited")
+var m1Holding bool = false
+var slingStartX, slingStartY, slingEndX, slingEndY float64
 
-var m1Hold bool = false
-
-// single threader approach around 60 ms
-
-var pairBuffer [2048][2]*body.Body
-
-func (g *Game) Update() error {
-	//start := time.Now()
+func (g *Game) ProcessInput() error {
 	// ESC exit
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		return ErrExit
@@ -74,117 +70,89 @@ func (g *Game) Update() error {
 
 	// adding a body via mouse click
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		m1Holding = true
+		//mx, my := ebiten.CursorPosition()
 		mx, my := ebiten.CursorPosition()
-		fmt.Println("Add body to x:", mx, "y:", my)
-		g.addBody(mx, my)
+		slingStartX, slingStartY = float64(mx), float64(my)
+		fmt.Println("Sling start at x:", mx, "y:", my)
+		//g.addBody(mx, my)
+	}
+	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
+		m1Holding = false
+		mx, my := ebiten.CursorPosition()
+		slingEndX, slingEndY = float64(mx), float64(my)
+		// get difference between sling start and sling end
+		dx := slingStartX - slingEndX
+		dy := slingStartY - slingEndY
+		g.addBody(int(slingStartX), int(slingStartY), dx*config.SlingSpeed, dy*config.SlingSpeed)
+	}
+	return nil
+}
+
+func (g *Game) Update() error {
+	//start := time.Now()
+	if err := g.ProcessInput(); err != nil {
+		if err == ErrExit {
+			return ErrExit
+		}
 	}
 
 	// update bodies
+
 	// zero out the bodies' gravity vectors
 	for i := 0; i < len(g.Bodies); i++ {
 		g.Bodies[i].Fx, g.Bodies[i].Fy = 0.0, 0.0
 	}
 
-	// list all the unique pairs
-	// pairs := make([][2]*body.Body, 2048)
-	// pairsLen := 0
-	// calculate new gravity vectors, go through unique pairs
-	if false {
-		// if len(g.uniquePairs) >= 10 {
-		threadCount := 2
+	// Calculate new gravity vectors between
+	// all uniquely paired bodies.
+	threadCount := 4
+	if false { // multithreading is under construction
+		workload := len(g.uniquePairs) / threadCount
+		remWorkload := len(g.uniquePairs) % threadCount
 		var pairsWg sync.WaitGroup
-		pairsWg.Add(threadCount)
-		go g.calcPairsGoroutine(0, &pairsWg, 0, len(g.uniquePairs)/2)
-		go g.calcPairsGoroutine(1, &pairsWg, len(g.uniquePairs)/2, len(g.uniquePairs))
+		for i := 0; i < threadCount; i++ {
+			pairsWg.Add(1)
+			go g.calcPairsGoroutine(i, &pairsWg, i*workload, workload+workload*i)
+		}
+		// calculate the possible remained here in the main thread
+		// while waiting other threads to finish.
+		for i := len(g.uniquePairs) - remWorkload - 1; i < len(g.uniquePairs); i++ {
+			index := len(g.uniquePairs) - 1 - remWorkload + i
+			if index < len(g.uniquePairs) && index >= 0 {
+				fmt.Println("Main index:", index)
+				body.ApplyGravity(g.uniquePairs[index][0], g.uniquePairs[index][1])
+			}
+
+		}
 		pairsWg.Wait()
 	} else {
-		// single threaded calculations
+		// calculate gravity in a single thread
 		for i := 0; i < len(g.uniquePairs); i++ {
 			body.ApplyGravity(g.uniquePairs[i][0], g.uniquePairs[i][1])
 		}
 	}
 
-	// for i := 0; i < len(g.Bodies); i++ {
-	// 	for j := i + 1; j < len(g.Bodies); j++ {
-	// 		// apply gravity between i and j
-	// 		// F = G*((m1*m2)/(r*r))
-	// 		//Fx := GravityConst * ((g.bodies[i].M * g.bodies[j].M) / g.bodies)
-	// 		// list the unique pair
-	// 		//uniquePairIndice = append(uniquePairIndice, []int{i, j})
-
-	// 		//body.ApplyGravity(g.Bodies[i], g.Bodies[j])
-
-	// 		pairs[pairsLen][0] = g.Bodies[i]
-	// 		pairs[pairsLen][1] = g.Bodies[j]
-	// 		pairsLen++
-	// 		if pairsLen >= len(pairs) {
-	// 			toAppend := make([][2]*body.Body, 2048)
-	// 			pairs = append(pairs, toAppend...)
-	// 		}
-	// 	}
-	// 	//g.Bodies[i].Update()
-	// }
-	// TODO: split calculation of the pairs into goroutines
-	// var pairsWg sync.WaitGroup
-	// threadCount := 2
-	// pairsWg.Add(threadCount)
-	// go g.calcPairsGoroutine(0, &pairsWg, 0, pairsLen/threadCount, pairs)
-	// go g.calcPairsGoroutine(1, &pairsWg, pairsLen/threadCount, pairsLen, pairs)
-	// pairsWg.Wait()
 	// update bodies
 	for i := 0; i < len(g.Bodies); i++ {
 		g.Bodies[i].Update()
 	}
-	// go g.calcPairs(0, len(pairs)/2, pairs)
-	// go g.calcPairs(len(pairs)/2, len(pairs), pairs)
-	// if false {
-	// 	var wg sync.WaitGroup
-	// 	wg.Add(2)
-	// 	go g.calcPairsGoroutine(0, &wg, 0, len(uniquePairIndice)/2, uniquePairIndice)
-	// 	go g.calcPairsGoroutine(1, &wg, len(uniquePairIndice)/2, len(uniquePairIndice)-1, uniquePairIndice)
-	// 	// wait for the pairs to finish.
-	// 	wg.Wait()
-	// 	for i := 0; i < len(g.Bodies); i++ {
-	// 		g.Bodies[i].Update()
-	// 	}
-	// }
 
-	//fmt.Println("Goroutines completed!")
-	//fmt.Println(time.Since(start))
-	return nil
+	return nil // nil error
 }
 
 // calculates gravity between unique pairs, from indices a to b
 func (g *Game) calcPairsGoroutine(id int, wg *sync.WaitGroup, a, b int) {
-	//fmt.Println(id, ": ", a, b, "len(pairs):", len(pairs))
 	for i := a; i < b; i++ {
-		//fmt.Println(id, "Gravity before:\t", g.Bodies[pairs[i][0]].Fx)
-		//fmt.Println(id, ": ", "Applying gravity for", pairs[i][0], pairs[i][1])
-		//fmt.Println(id, "Gravity after:\t", g.Bodies[pairs[i][0]].Fx)
+
 		body.ApplyGravity(g.uniquePairs[a][0], g.uniquePairs[a][1])
-		// g.Bodies[pairs[i][1]].Update()
 	}
-	//fmt.Println(id, "Goroutine finished.")
 	wg.Done()
 }
 
 func (g *Game) spawnToRandom(n int) {
 	for i := 0; i < n; i++ {
-		g.addBody(rand.IntN(1000), rand.IntN(1000))
-		// g.Bodies = append(g.Bodies, body.NewBody(
-		// 	float64(rand.IntN(1000)), // x
-		// 	float64(rand.IntN(1000)), // y
-		// 	float64(5),               // r
-		// 	float64(0.5),             // m
-		// 	float64(0),               // vx
-		// 	float64(0),               // vy
-		// 	color.RGBA{
-		// 		R: uint8(rand.IntN(255)),
-		// 		G: uint8(rand.IntN(255)),
-		// 		B: uint8(126 + rand.IntN(126)),
-		// 		A: 255,
-		// 	},
-		// ))
+		g.addBody(rand.IntN(1000), rand.IntN(1000), 0, 0)
 	}
 }
 
@@ -251,15 +219,15 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 		config.InnerHeight + g.ViewPortScale*int(aspectRatioY)
 }
 
-func (g *Game) addBody(x, y int) {
+func (g *Game) addBody(x, y int, vx, vy float64) {
 
 	g.Bodies = append(g.Bodies, body.NewBody(
 		float64((x-g.ViewPortScale/2)+g.ViewPortOffsetX), // x
 		float64((y-g.ViewPortScale/2)+g.ViewPortOffsetY), // y
 		float64(5),   // r
-		float64(0.1), // m
-		float64(0),   // vx
-		float64(0),   // vy
+		float64(0.5), // m
+		vx,           // vx
+		vy,           // vy
 		color.RGBA{
 			R: uint8(rand.IntN(255)),
 			G: uint8(rand.IntN(255)),

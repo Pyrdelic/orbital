@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"image/draw"
 	"math"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -107,8 +108,10 @@ func getatobDiff(a, b Point) (float64, float64) {
 const GravityConst float64 = 1.0
 
 // Applies mutual gravity of two bodies to both bodies.
-func ApplyGravity(a, b *Body) {
+var applyGravityMutex sync.Mutex
 
+func ApplyGravity(a, b *Body) {
+	applyGravityMutex.Lock()
 	r := PointDistance(a.Center(), b.Center())
 	//f := GravityConst * ((a.M * b.M) / (r * r)) // length of the gravity vector
 	rx, ry := getatobDiff(a.Center(), b.Center())
@@ -121,6 +124,7 @@ func ApplyGravity(a, b *Body) {
 	a.Fy += fy
 	b.Fx += -fx
 	b.Fy += -fy
+	applyGravityMutex.Unlock()
 }
 
 // NewBody returns a pointer to a new body.
@@ -141,6 +145,7 @@ func NewBody(x, y, r, m, vx, vy float64, c color.Color) *Body {
 }
 
 func (b *Body) Update() {
+
 	// apply force vector to velocity vector
 	b.Vx += b.Fx
 	b.Vy += b.Fy
@@ -155,6 +160,12 @@ func (b *Body) Draw(screen *ebiten.Image, bodyDIO *ebiten.DrawImageOptions) {
 	// 	b.X+zoomOffset/2,
 	// 	b.Y+zoomOffset/2)
 	//dio.GeoM.Translate(b.X, b.Y)
+	// bodyDIO.ColorScale.Scale(
+	// 	float32(b.Vx),
+	// 	1.0,
+	// 	float32(b.Vy),
+	// 	1.0,
+	// )
 	screen.DrawImage(b.Image, bodyDIO)
 }
 
