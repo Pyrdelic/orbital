@@ -3,7 +3,6 @@ package body
 import (
 	"image/color"
 	"image/draw"
-	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -23,31 +22,30 @@ type Point struct {
 	X, Y float64
 }
 
-// Returns x and y axis difference from a to b.
-func PointDistanceXY(a, b Point) (float64, float64) {
-	var xDiff, yDiff float64 // difference
-	if a.X < b.X {
-		xDiff = b.X - a.X
-	} else if a.X > b.X {
-		xDiff = a.X - b.X
-	} else {
-		xDiff = 0
-	}
-	if a.Y < b.Y {
-		yDiff = b.Y - a.Y
-	} else if a.Y > b.Y {
-		yDiff = a.Y - b.Y
-	} else {
-		yDiff = 0
-	}
-	return xDiff, yDiff
-}
+// // Returns x and y axis difference from a to b.
+// func PointDistanceXY(a, b Point) (float64, float64) {
+// 	var xDiff, yDiff float64 // difference
+// 	if a.X < b.X {
+// 		xDiff = b.X - a.X
+// 	} else if a.X > b.X {
+// 		xDiff = a.X - b.X
+// 	} else {
+// 		xDiff = 0
+// 	}
+// 	if a.Y < b.Y {
+// 		yDiff = b.Y - a.Y
+// 	} else if a.Y > b.Y {
+// 		yDiff = a.Y - b.Y
+// 	} else {
+// 		yDiff = 0
+// 	}
+// 	return xDiff, yDiff
+// }
 
 func PointDistance(a, b Point) float64 {
-	xDiff, yDiff := PointDistanceXY(a, b)
-	distanceSq := xDiff*xDiff + yDiff*yDiff
-	// return math.Sqrt(distanceSq)
-	return distanceSq
+	dx := b.X - a.X
+	dy := b.Y - a.Y
+	return dx*dx + dy*dy
 }
 
 // // Returns gravityvector x, y from a to b.
@@ -107,11 +105,11 @@ func getatobDiff(a, b Point) (float64, float64) {
 
 const GravityConst float64 = 1.0
 
-// Applies mutual gravity of two bodies to both bodies.
-var applyGravityMutex sync.Mutex
+// // Applies mutual gravity of two bodies to both bodies.
+// var applyGravityMutex sync.Mutex
 
 func ApplyGravity(a, b *Body) {
-	applyGravityMutex.Lock()
+	// applyGravityMutex.Lock()
 	r := PointDistance(a.Center(), b.Center())
 	//f := GravityConst * ((a.M * b.M) / (r * r)) // length of the gravity vector
 	rx, ry := getatobDiff(a.Center(), b.Center())
@@ -124,7 +122,7 @@ func ApplyGravity(a, b *Body) {
 	a.Fy += fy
 	b.Fx += -fx
 	b.Fy += -fy
-	applyGravityMutex.Unlock()
+	// applyGravityMutex.Unlock()
 }
 
 // NewBody returns a pointer to a new body.

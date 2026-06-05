@@ -104,33 +104,9 @@ func (g *Game) Update() error {
 		g.Bodies[i].Fx, g.Bodies[i].Fy = 0.0, 0.0
 	}
 
-	// Calculate new gravity vectors between
-	// all uniquely paired bodies.
-	threadCount := 4
-	if false { // multithreading is under construction
-		workload := len(g.uniquePairs) / threadCount
-		remWorkload := len(g.uniquePairs) % threadCount
-		var pairsWg sync.WaitGroup
-		for i := 0; i < threadCount; i++ {
-			pairsWg.Add(1)
-			go g.calcPairsGoroutine(i, &pairsWg, i*workload, workload+workload*i)
-		}
-		// calculate the possible remained here in the main thread
-		// while waiting other threads to finish.
-		for i := len(g.uniquePairs) - remWorkload - 1; i < len(g.uniquePairs); i++ {
-			index := len(g.uniquePairs) - 1 - remWorkload + i
-			if index < len(g.uniquePairs) && index >= 0 {
-				fmt.Println("Main index:", index)
-				body.ApplyGravity(g.uniquePairs[index][0], g.uniquePairs[index][1])
-			}
-
-		}
-		pairsWg.Wait()
-	} else {
-		// calculate gravity in a single thread
-		for i := 0; i < len(g.uniquePairs); i++ {
-			body.ApplyGravity(g.uniquePairs[i][0], g.uniquePairs[i][1])
-		}
+	// calculate gravity in a single thread
+	for i := 0; i < len(g.uniquePairs); i++ {
+		body.ApplyGravity(g.uniquePairs[i][0], g.uniquePairs[i][1])
 	}
 
 	// update bodies
@@ -142,13 +118,13 @@ func (g *Game) Update() error {
 }
 
 // calculates gravity between unique pairs, from indices a to b
-func (g *Game) calcPairsGoroutine(id int, wg *sync.WaitGroup, a, b int) {
-	for i := a; i < b; i++ {
+// func (g *Game) calcPairsGoroutine(wg *sync.WaitGroup, a, b int) {
+// 	for i := a; i < b; i++ {
 
-		body.ApplyGravity(g.uniquePairs[a][0], g.uniquePairs[a][1])
-	}
-	wg.Done()
-}
+// 		body.ApplyGravity(g.uniquePairs[a][0], g.uniquePairs[a][1])
+// 	}
+// 	wg.Done()
+// }
 
 func (g *Game) spawnToRandom(n int) {
 	for i := 0; i < n; i++ {
