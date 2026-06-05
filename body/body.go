@@ -3,7 +3,6 @@ package body
 import (
 	"image/color"
 	"image/draw"
-	"math"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -47,7 +46,8 @@ func PointDistanceXY(a, b Point) (float64, float64) {
 func PointDistance(a, b Point) float64 {
 	xDiff, yDiff := PointDistanceXY(a, b)
 	distanceSq := xDiff*xDiff + yDiff*yDiff
-	return math.Sqrt(distanceSq)
+	// return math.Sqrt(distanceSq)
+	return distanceSq
 }
 
 // // Returns gravityvector x, y from a to b.
@@ -116,7 +116,7 @@ func ApplyGravity(a, b *Body) {
 	//f := GravityConst * ((a.M * b.M) / (r * r)) // length of the gravity vector
 	rx, ry := getatobDiff(a.Center(), b.Center())
 	//fmt.Printf("%.6f\t%.6f\t%.6f\n", rx, ry, r)
-	f := GravityConst * ((a.M * b.M) / (r * r))
+	f := GravityConst * ((a.M * b.M) / r)
 	fx := rx * f
 	fy := ry * f
 
